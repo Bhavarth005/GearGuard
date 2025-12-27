@@ -294,5 +294,33 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
+-- Verify User Login
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION sp_verify_user_login(
+    p_email TEXT,
+    p_password TEXT
+)
+RETURNS TABLE (
+    user_id INT,
+    full_name TEXT,
+    role TEXT
+)
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.user_id,
+        u.full_name::TEXT,
+        u.role::TEXT
+    FROM users u
+    WHERE u.email = p_email
+      AND u.is_active = TRUE
+      AND u.password_hash = crypt(p_password, u.password_hash);
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- =====================================================
 -- END OF SCRIPT
 -- =====================================================

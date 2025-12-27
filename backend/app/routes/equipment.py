@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.auth.deps import get_current_user
@@ -15,14 +16,14 @@ def get_db():
 @router.post("/")
 def create_equipment(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
     db.execute(
-        """
+        text("""
         SELECT sp_create_equipment(
             :equipment_name, :serial_number, :category_id,
             :department_id, :assigned_user_id,
             :maintenance_team_id, :default_technician_id,
             :purchase_date, :warranty_end_date, :location
         )
-        """,
+        """),
         payload
     )
     db.commit()
@@ -32,7 +33,7 @@ def create_equipment(payload: dict, db: Session = Depends(get_db), user=Depends(
 @router.get("/{equipment_id}")
 def get_equipment(equipment_id: int | None = None, db: Session = Depends(get_db)):
     result = db.execute(
-        "SELECT * FROM sp_get_equipment(:id)",
+        text("SELECT * FROM sp_get_equipment(:id)"),
         {"id": equipment_id}
     )
     return result.mappings().all()

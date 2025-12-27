@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.auth.deps import require_role
@@ -15,13 +16,13 @@ def get_db():
 @router.post("/")
 def create_request(payload: dict, db: Session = Depends(get_db)):
     db.execute(
-        """
+        text("""
         SELECT sp_create_request(
             :request_number, :subject, :description,
             :equipment_id, :request_type_id,
             :requested_by, :scheduled_date
         )
-        """,
+        """),
         payload
     )
     db.commit()
@@ -30,11 +31,11 @@ def create_request(payload: dict, db: Session = Depends(get_db)):
 @router.patch("/{request_id}/status")
 def update_request_status(request_id: int, payload: dict, db: Session = Depends(get_db),  user=Depends(require_role("Manager", "Technician"))):
     db.execute(
-        """
+        text("""
         SELECT sp_update_request_status(
             :id, :status, :changed_by, :duration, :notes
         )
-        """,
+        """),
         {
             "id": request_id,
             "status": payload["status_id"],
@@ -50,7 +51,7 @@ def update_request_status(request_id: int, payload: dict, db: Session = Depends(
 @router.get("/{request_id}")
 def get_requests(request_id: int | None = None, db: Session = Depends(get_db)):
     result = db.execute(
-        "SELECT * FROM sp_get_requests(:id)",
+        text("SELECT * FROM sp_get_requests(:id)"),
         {"id": request_id}
     )
     return result.mappings().all()

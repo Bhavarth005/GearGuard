@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.db.session import SessionLocal
 from app.auth.jwt import create_access_token
 
@@ -17,10 +18,10 @@ def get_db():
 @router.post("/login")
 def login(payload: dict, db: Session = Depends(get_db)):
     result = db.execute(
-        """
-        SELECT user_id, full_name, role
-        FROM sp_verify_user_login(:email, :password)
-        """,
+        text("""
+            SELECT user_id, full_name, role
+            FROM sp_verify_user_login(:email, :password)
+        """),
         {
             "email": payload["email"],
             "password": payload["password"]

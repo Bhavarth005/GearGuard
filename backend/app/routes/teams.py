@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 
@@ -14,7 +15,7 @@ def get_db():
 @router.post("/")
 def create_team(payload: dict, db: Session = Depends(get_db)):
     db.execute(
-        "SELECT sp_create_team(:team_name, :description)", payload
+        text("SELECT sp_create_team(:team_name, :description)"), payload
     )
     db.commit()
     return {"message": "Team created"}
@@ -23,7 +24,7 @@ def create_team(payload: dict, db: Session = Depends(get_db)):
 @router.get("/{team_id}")
 def get_teams(team_id: int | None = None, db: Session = Depends(get_db)):
     result = db.execute(
-        "SELECT * FROM sp_get_teams(:id)",
+        text("SELECT * FROM sp_get_teams(:id)"),
         {"id": team_id}
     )
     return result.mappings().all()

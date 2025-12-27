@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 
@@ -14,12 +15,12 @@ def get_db():
 @router.post("/")
 def create_user(payload: dict, db: Session = Depends(get_db)):
     db.execute(
-        """
+        text("""
         SELECT sp_create_user(
             :name, :email, :phone, :password,
             :role, :dept, :avatar
         )
-        """,
+        """),
         payload
     )
     db.commit()
@@ -29,7 +30,7 @@ def create_user(payload: dict, db: Session = Depends(get_db)):
 @router.get("/{user_id}")
 def get_users(user_id: int | None = None, db: Session = Depends(get_db)):
     result = db.execute(
-        "SELECT * FROM sp_get_users(:id)",
+        text("SELECT * FROM sp_get_users(:id)"),
         {"id": user_id}
     )
     return result.mappings().all()

@@ -4,6 +4,7 @@ from sqlalchemy import text
 from .db.session import get_db, engine
 from .models.maintenance import Base
 from app.routes import departments, users, equipment, teams, requests
+from app.routes import auth
 
 # Ensure tables are created on startup (for v0)
 Base.metadata.create_all(bind=engine)
@@ -17,3 +18,4 @@ app.include_router(users.router)
 app.include_router(equipment.router)
 app.include_router(teams.router)
 app.include_router(requests.router)
+app.include_router(auth.router)
