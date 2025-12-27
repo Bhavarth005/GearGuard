@@ -246,29 +246,37 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION sp_update_request_status(
     p_request_id INT,
-    p_new_status_id INT,
+    p_new_status_id INT, 
     p_changed_by INT,
-    p_notes TEXT
+    p_duration_hours NUMERIC DEFAULT NULL,
+    p_notes TEXT DEFAULT NULL
 ) RETURNS VOID AS $$
 DECLARE
     v_old_status INT;
+    v_equipment_id INT;
 BEGIN
-    SELECT status_id INTO v_old_status
+    SELECT status_id, equipment_id INTO v_old_status, v_equipment_id
     FROM maintenance_requests
     WHERE request_id = p_request_id;
 
-    UPDATE maintenance_requests
-    SET status_id = p_new_status_id
-    WHERE request_id = p_request_id;
+    IF p_new_status_id = 4 THEN
+        UPDATE equipment SET is_scrapped = TRUE WHERE equipment_id = v_equipment_id;
+    END IF;
 
-    INSERT INTO maintenance_request_history (
-        request_id, old_status_id, new_status_id,
-        changed_by, notes
-    )
-    VALUES (
-        p_request_id, v_old_status,
-        p_new_status_id, p_changed_by, p_notes
-    );
+    IF p_new_status_id = 3 THEN
+        UPDATE maintenance_requests 
+        SET status_id = p_new_status_id,
+            completed_at = CURRENT_TIMESTAMP,
+            duration_hours = p_duration_hours
+        WHERE request_id = p_request_id;
+    ELSE
+        UPDATE maintenance_requests
+        SET status_id = p_new_status_id
+        WHERE request_id = p_request_id;
+    END IF;
+
+    INSERT INTO maintenance_request_history (request_id, old_status_id, new_status_id, changed_by, notes)
+    VALUES (p_request_id, v_old_status, p_new_status_id, p_changed_by, p_notes);
 END;
 $$ LANGUAGE plpgsql;
 
