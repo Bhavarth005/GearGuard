@@ -1,126 +1,144 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, Filter, AlertTriangle, CheckCircle, Clock, Plus } from "lucide-react"
-import { AddEquipmentModal } from "./add-equipment-modal"
+import { useState, useMemo, useEffect } from "react";
+import {
+  Search,
+  Filter,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Plus,
+} from "lucide-react";
+import { AddEquipmentModal } from "./add-equipment-modal";
+import {
+  fetchEquipment,
+  fetchDepartments,
+  fetchTeams,
+  type EquipmentRecord,
+  type DepartmentRecord,
+  type MaintenanceTeamRecord,
+} from "@/lib/api";
+import { ApiError } from "@/lib/api-client";
 
-interface Equipment {
-  id: string
-  name: string
-  serialNumber: string
-  department: string
-  status: "operational" | "warning" | "maintenance"
-  hoursOfOperation: number
-  nextMaintenanceDate: string
-  lastMaintenanceDate: string
-  assignedTeam: string
-  location: string
+interface EquipmentCard {
+  id: string;
+  name: string;
+  serialNumber: string;
+  department: string;
+  status: "operational" | "warning" | "maintenance";
+  hoursOfOperation: number;
+  nextMaintenanceDate: string;
+  lastMaintenanceDate: string;
+  assignedTeam: string;
+  location: string;
 }
-
-const initialMockEquipment: Equipment[] = [
-  {
-    id: "eq-001",
-    name: "CNC Machine A",
-    serialNumber: "CNC-2024-001",
-    department: "Manufacturing",
-    status: "operational",
-    hoursOfOperation: 2450,
-    nextMaintenanceDate: "2024-02-15",
-    lastMaintenanceDate: "2024-01-10",
-    assignedTeam: "Mechanics",
-    location: "Building A, Floor 2",
-  },
-  {
-    id: "eq-002",
-    name: "Hydraulic Press B",
-    serialNumber: "HYD-2024-002",
-    department: "Manufacturing",
-    status: "warning",
-    hoursOfOperation: 3120,
-    nextMaintenanceDate: "2024-01-20",
-    lastMaintenanceDate: "2023-12-01",
-    assignedTeam: "Mechanics",
-    location: "Building A, Floor 1",
-  },
-  {
-    id: "eq-003",
-    name: "Air Compressor C",
-    serialNumber: "AIR-2024-003",
-    department: "Manufacturing",
-    status: "maintenance",
-    hoursOfOperation: 4560,
-    nextMaintenanceDate: "2024-01-18",
-    lastMaintenanceDate: "2023-11-15",
-    assignedTeam: "Mechanics",
-    location: "Building B, Floor 1",
-  },
-  {
-    id: "eq-004",
-    name: "Server Rack 1",
-    serialNumber: "SRV-2024-004",
-    department: "IT",
-    status: "operational",
-    hoursOfOperation: 8760,
-    nextMaintenanceDate: "2024-03-01",
-    lastMaintenanceDate: "2024-01-05",
-    assignedTeam: "IT Support",
-    location: "Building C, Server Room",
-  },
-]
 
 interface EquipmentDashboardProps {
-  onSelectEquipment: (id: string) => void
+  onSelectEquipment: (id: string) => void;
 }
 
-export function EquipmentDashboard({ onSelectEquipment }: EquipmentDashboardProps) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [departmentFilter, setDepartmentFilter] = useState("all")
-  const [equipment, setEquipment] = useState(initialMockEquipment)
-  const [showAddModal, setShowAddModal] = useState(false)
+export function EquipmentDashboard({
+  onSelectEquipment,
+}: EquipmentDashboardProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [equipment, setEquipment] = useState<EquipmentCard[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadEquipment = async () => {
+      try {
+        setLoading(true);
+        const [equipmentRecords, departmentRecords, teamRecords] =
+          await Promise.all([
+            fetchEquipment(),
+            fetchDepartments(),
+            fetchTeams(),
+          ]);
+
+        if (!active) return;
+
+        const departmentMap = new Map<number, DepartmentRecord>(
+          departmentRecords.map((dept) => [dept.department_id, dept])
+        );
+        const teamMap = new Map<number, MaintenanceTeamRecord>(
+          teamRecords.map((team) => [team.team_id, team])
+        );
+
+        setEquipment(
+          equipmentRecords.map((record) =>
+            mapEquipmentRecord(record, departmentMap, teamMap)
+          )
+        );
+        setError("");
+      } catch (err) {
+        if (!active) return;
+        const message =
+          err instanceof ApiError ? err.message : "Unable to load equipment";
+        setError(message);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadEquipment();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const departments = useMemo(() => {
-    return ["all", ...new Set(equipment.map((e) => e.department))]
-  }, [equipment])
+    return ["all", ...new Set(equipment.map((e) => e.department))];
+  }, [equipment]);
 
   const filteredEquipment = useMemo(() => {
     return equipment.filter((eq) => {
       const matchesSearch =
         eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesDept = departmentFilter === "all" || eq.department === departmentFilter
-      return matchesSearch && matchesDept
-    })
-  }, [searchTerm, departmentFilter, equipment])
+        eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDept =
+        departmentFilter === "all" || eq.department === departmentFilter;
+      return matchesSearch && matchesDept;
+    });
+  }, [searchTerm, departmentFilter, equipment]);
 
   const handleAddEquipment = (newEquip: any) => {
-    const newEquipment: Equipment = {
-      id: `eq-${Date.now()}`,
+    const newEquipment: EquipmentCard = {
+      id: Date.now().toString(),
       name: newEquip.name,
       serialNumber: newEquip.serialNumber,
       department: newEquip.department,
       status: "operational",
       hoursOfOperation: 0,
-      nextMaintenanceDate: newEquip.warrantyExpiration || new Date().toISOString().split("T")[0],
-      lastMaintenanceDate: newEquip.purchaseDate || new Date().toISOString().split("T")[0],
+      nextMaintenanceDate:
+        newEquip.warrantyExpiration || new Date().toISOString().split("T")[0],
+      lastMaintenanceDate:
+        newEquip.purchaseDate || new Date().toISOString().split("T")[0],
       assignedTeam: newEquip.assignedTeam,
       location: newEquip.location,
-    }
-    setEquipment([...equipment, newEquipment])
-    setShowAddModal(false)
-  }
+    };
+    setEquipment((prev) => [...prev, newEquipment]);
+    setShowAddModal(false);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "operational":
-        return <CheckCircle className="w-4 h-4 text-green-500" />
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case "warning":
-        return <Clock className="w-4 h-4 text-yellow-500" />
+        return <Clock className="w-4 h-4 text-yellow-500" />;
       case "maintenance":
-        return <AlertTriangle className="w-4 h-4 text-red-500" />
+        return <AlertTriangle className="w-4 h-4 text-red-500" />;
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -168,6 +186,21 @@ export function EquipmentDashboard({ onSelectEquipment }: EquipmentDashboardProp
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-1">
+        {loading && (
+          <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+            Syncing equipment with GearGuard API...
+          </div>
+        )}
+        {error && !loading && (
+          <div className="bg-destructive/10 border border-destructive/40 text-destructive rounded-lg p-4 text-sm">
+            {error}
+          </div>
+        )}
+        {!loading && !error && filteredEquipment.length === 0 && (
+          <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+            No equipment matched your filters.
+          </div>
+        )}
         {filteredEquipment.map((equipment) => (
           <div
             key={equipment.id}
@@ -178,26 +211,38 @@ export function EquipmentDashboard({ onSelectEquipment }: EquipmentDashboardProp
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   {getStatusIcon(equipment.status)}
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{equipment.name}</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
+                    {equipment.name}
+                  </h3>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground mb-3 truncate">S/N: {equipment.serialNumber}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3 truncate">
+                  S/N: {equipment.serialNumber}
+                </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
                   <div>
                     <p className="text-muted-foreground text-xs">Department</p>
-                    <p className="font-medium text-foreground truncate">{equipment.department}</p>
+                    <p className="font-medium text-foreground truncate">
+                      {equipment.department}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Team</p>
-                    <p className="font-medium text-foreground truncate">{equipment.assignedTeam}</p>
+                    <p className="font-medium text-foreground truncate">
+                      {equipment.assignedTeam}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Hours Op.</p>
-                    <p className="font-medium text-foreground">{equipment.hoursOfOperation.toLocaleString()}</p>
+                    <p className="font-medium text-foreground">
+                      {equipment.hoursOfOperation.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Next Maint.</p>
-                    <p className="font-medium text-foreground whitespace-nowrap">{equipment.nextMaintenanceDate}</p>
+                    <p className="font-medium text-foreground whitespace-nowrap">
+                      {equipment.nextMaintenanceDate}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -210,7 +255,55 @@ export function EquipmentDashboard({ onSelectEquipment }: EquipmentDashboardProp
         ))}
       </div>
 
-      <AddEquipmentModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onAdd={handleAddEquipment} />
+      <AddEquipmentModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddEquipment}
+      />
     </div>
-  )
+  );
 }
+
+const mapEquipmentRecord = (
+  record: EquipmentRecord,
+  departmentMap: Map<number, DepartmentRecord>,
+  teamMap: Map<number, MaintenanceTeamRecord>
+): EquipmentCard => {
+  const status = deriveStatus(record);
+  return {
+    id: record.equipment_id.toString(),
+    name: record.equipment_name,
+    serialNumber: record.serial_number,
+    department:
+      departmentMap.get(record.department_id ?? -1)?.department_name ??
+      "Unassigned",
+    status,
+    hoursOfOperation: 0,
+    nextMaintenanceDate: record.warranty_end_date ?? "N/A",
+    lastMaintenanceDate: record.purchase_date ?? "N/A",
+    assignedTeam:
+      teamMap.get(record.maintenance_team_id)?.team_name ?? "Unassigned",
+    location: record.location ?? "Unspecified",
+  };
+};
+
+const deriveStatus = (record: EquipmentRecord): EquipmentCard["status"] => {
+  if (record.is_scrapped) {
+    return "maintenance";
+  }
+
+  if (record.warranty_end_date) {
+    const warrantyDate = new Date(record.warranty_end_date);
+    const today = new Date();
+    if (warrantyDate.getTime() < today.getTime()) {
+      return "warning";
+    }
+    const daysUntilExpiry =
+      (warrantyDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysUntilExpiry < 30) {
+      return "warning";
+    }
+  }
+
+  return "operational";
+};

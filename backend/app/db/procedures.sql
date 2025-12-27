@@ -252,10 +252,9 @@ CREATE OR REPLACE FUNCTION sp_update_request_status(
     p_notes TEXT DEFAULT NULL
 ) RETURNS VOID AS $$
 DECLARE
-    v_old_status INT;
     v_equipment_id INT;
 BEGIN
-    SELECT status_id, equipment_id INTO v_old_status, v_equipment_id
+    SELECT equipment_id INTO v_equipment_id
     FROM maintenance_requests
     WHERE request_id = p_request_id;
 
@@ -275,8 +274,6 @@ BEGIN
         WHERE request_id = p_request_id;
     END IF;
 
-    INSERT INTO maintenance_request_history (request_id, old_status_id, new_status_id, changed_by, notes)
-    VALUES (p_request_id, v_old_status, p_new_status_id, p_changed_by, p_notes);
 END;
 $$ LANGUAGE plpgsql;
 

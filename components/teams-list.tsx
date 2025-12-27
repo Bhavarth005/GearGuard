@@ -1,105 +1,72 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { Users, Plus, Edit2, Trash2, X } from "lucide-react"
-
-interface Team {
-  id: string
-  name: string
-  description: string
-  memberCount: number
-  members: string[]
-}
-
-const mockTeams: Team[] = [
-  {
-    id: "t1",
-    name: "Mechanics",
-    description: "Handles mechanical equipment maintenance",
-    memberCount: 5,
-    members: ["John Smith", "Sarah Lee", "Robert Wilson"],
-  },
-  {
-    id: "t2",
-    name: "Electricians",
-    description: "Handles electrical and control systems",
-    memberCount: 3,
-    members: ["Emily Davis", "Michael Brown"],
-  },
-  {
-    id: "t3",
-    name: "IT Support",
-    description: "Handles IT infrastructure maintenance",
-    memberCount: 2,
-    members: ["Mike Johnson", "Lisa Anderson"],
-  },
-]
+import { useCallback, useEffect, useState } from "react";
+import { Users, Plus } from "lucide-react";
+import { fetchTeams, createTeam, type MaintenanceTeamRecord } from "@/lib/api";
+import { ApiError } from "@/lib/api-client";
 
 export function TeamsList() {
-  const [teams, setTeams] = useState(mockTeams)
-  const [showForm, setShowForm] = useState(false)
-  const [newTeamName, setNewTeamName] = useState("")
-  const [newTeamDesc, setNewTeamDesc] = useState("")
-  const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
-  const [newMemberName, setNewMemberName] = useState("")
+  const [teams, setTeams] = useState<MaintenanceTeamRecord[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamDesc, setNewTeamDesc] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleAddTeam = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newTeamName.trim()) {
-      const newTeam: Team = {
-        id: `t${teams.length + 1}`,
-        name: newTeamName,
-        description: newTeamDesc,
-        memberCount: 0,
-        members: [],
-      }
-      setTeams([...teams, newTeam])
-      setNewTeamName("")
-      setNewTeamDesc("")
-      setShowForm(false)
+  const loadTeams = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchTeams();
+      setTeams(data);
+      setError("");
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Unable to load teams";
+      setError(message);
+    } finally {
+      setLoading(false);
     }
-  }
+  }, []);
 
-  const handleAddMember = (teamId: string) => {
-    if (newMemberName.trim()) {
-      setTeams(
-        teams.map((team) =>
-          team.id === teamId
-            ? {
-                ...team,
-                members: [...team.members, newMemberName],
-                memberCount: team.memberCount + 1,
-              }
-            : team,
-        ),
-      )
-      setNewMemberName("")
+  useEffect(() => {
+    loadTeams();
+  }, [loadTeams]);
+
+  const handleAddTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeamName.trim()) return;
+    setCreating(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      await createTeam({
+        team_name: newTeamName.trim(),
+        description: newTeamDesc.trim(),
+      });
+      setSuccessMessage("Team created");
+      setNewTeamName("");
+      setNewTeamDesc("");
+      setShowForm(false);
+      await loadTeams();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Unable to create team";
+      setError(message);
+    } finally {
+      setCreating(false);
     }
-  }
-
-  const handleRemoveMember = (teamId: string, memberName: string) => {
-    setTeams(
-      teams.map((team) =>
-        team.id === teamId
-          ? {
-              ...team,
-              members: team.members.filter((m) => m !== memberName),
-              memberCount: team.memberCount - 1,
-            }
-          : team,
-      ),
-    )
-  }
-
-  const handleDeleteTeam = (teamId: string) => {
-    setTeams(teams.filter((team) => team.id !== teamId))
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Maintenance Teams</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          Maintenance Teams
+        </h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-3 sm:px-4 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium text-sm sm:text-base whitespace-nowrap"
@@ -109,11 +76,24 @@ export function TeamsList() {
         </button>
       </div>
 
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/40 text-destructive rounded-lg p-3 text-sm">
+          {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="bg-green-500/10 border border-green-500/40 text-green-600 rounded-lg p-3 text-sm">
+          {successMessage}
+        </div>
+      )}
+
       {showForm && (
         <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
           <form onSubmit={handleAddTeam} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Team Name</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Team Name
+              </label>
               <input
                 type="text"
                 value={newTeamName}
@@ -124,7 +104,9 @@ export function TeamsList() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Description</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Description
+              </label>
               <textarea
                 value={newTeamDesc}
                 onChange={(e) => setNewTeamDesc(e.target.value)}
@@ -136,9 +118,10 @@ export function TeamsList() {
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="submit"
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium text-sm sm:text-base w-full sm:w-auto"
+                disabled={creating}
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium text-sm sm:text-base w-full sm:w-auto disabled:opacity-70"
               >
-                Create Team
+                {creating ? "Creating..." : "Create Team"}
               </button>
               <button
                 type="button"
@@ -153,79 +136,40 @@ export function TeamsList() {
       )}
 
       <div className="grid gap-3 sm:gap-4">
-        {teams.map((team) => (
-          <div key={team.id} className="bg-card border border-border rounded-lg p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+        {loading ? (
+          <div className="bg-card border border-border rounded-lg p-4 text-sm text-muted-foreground">
+            Loading teams...
+          </div>
+        ) : (
+          teams.map((team) => (
+            <div
+              key={team.team_id}
+              className="bg-card border border-border rounded-lg p-4 sm:p-6"
+            >
               <div className="flex items-start gap-3 sm:gap-4">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-foreground break-words">{team.name}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{team.description}</p>
+                  <h3 className="text-base sm:text-lg font-bold text-foreground break-words">
+                    {team.team_name}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                    {team.description || "No description provided"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Team ID: {team.team_id}
+                  </p>
                 </div>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setEditingTeamId(editingTeamId === team.id ? null : team.id)}
-                  className="p-2 hover:bg-input rounded-lg transition-colors"
-                >
-                  <Edit2 className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <button
-                  onClick={() => handleDeleteTeam(team.id)}
-                  className="p-2 hover:bg-input rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </button>
+              <div className="mt-4 rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground">
+                Member management will be available once user assignments sync
+                with the API.
               </div>
             </div>
-
-            <div className="pt-4 border-t border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-3">{team.memberCount} team members</p>
-
-              {editingTeamId === team.id && (
-                <div className="bg-background rounded-lg p-3 sm:p-4 mb-4 space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={newMemberName}
-                      onChange={(e) => setNewMemberName(e.target.value)}
-                      placeholder="Enter member name"
-                      className="flex-1 bg-input border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                    />
-                    <button
-                      onClick={() => handleAddMember(team.id)}
-                      className="bg-secondary text-secondary-foreground px-3 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium text-sm whitespace-nowrap w-full sm:w-auto"
-                    >
-                      Add Member
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2">
-                {team.members.map((member) => (
-                  <div
-                    key={member}
-                    className="px-3 py-1 bg-background text-foreground rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 group"
-                  >
-                    <span>{member}</span>
-                    {editingTeamId === team.id && (
-                      <button
-                        onClick={() => handleRemoveMember(team.id, member)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
-  )
+  );
 }

@@ -4,49 +4,70 @@ import type React from "react"
 import { useState } from "react"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
 import Link from "next/link"
+import { login } from "@/lib/api";
+import { ApiError } from "@/lib/api-client";
+
+const DEMO_CREDENTIALS = {
+  email: "admin@gearguard.com",
+  password: "Admin@123",
+};
 
 export function LoginForm() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+  const persistSession = (
+    token: string,
+    user: { user_id: number; full_name: string; role: string }
+  ) => {
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("user", JSON.stringify(user));
+  };
+
+  const performLogin = async (payload: { email: string; password: string }) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await login(payload);
+      persistSession(response.access_token, response.user);
+      window.location.href = "/";
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || "Unable to sign in. Please try again.");
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
 
     if (!email || !password) {
-      setError("Please fill in all fields")
-      return
+      setError("Please fill in all fields");
+      return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email address")
-      return
+      setError("Please enter a valid email address");
+      return;
     }
 
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      localStorage.setItem("authToken", "demo-token-" + Date.now())
-      localStorage.setItem("user", JSON.stringify({ email }))
-      window.location.href = "/"
-    }, 1000)
-  }
+    await performLogin({ email: email.trim().toLowerCase(), password });
+  };
 
-  const handleDemoLogin = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      localStorage.setItem("authToken", "demo-token-" + Date.now())
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ email: "demo@gearguard.com", name: "Demo User" }),
-      )
-      window.location.href = "/"
-    }, 800)
-  }
+  const handleDemoLogin = async () => {
+    await performLogin(DEMO_CREDENTIALS);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -116,9 +137,7 @@ export function LoginForm() {
           type="checkbox"
           className="h-4 w-4 cursor-pointer rounded border-border bg-input accent-primary"
         />
-        <span className="text-sm text-muted-foreground">
-          Remember me
-        </span>
+        <span className="text-sm text-muted-foreground">Remember me</span>
       </div>
 
       {/* Primary Action */}
@@ -140,5 +159,5 @@ export function LoginForm() {
         {loading ? "Loading Demo..." : "Try Demo"}
       </button>
     </form>
-  )
+  );
 }
