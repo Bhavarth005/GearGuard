@@ -21,10 +21,10 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(150), nullable=False)
     email = Column(String(150), unique=True)
-    password_hash = Column(Text)  # NEW: Added to match your ALTER TABLE 
+    password_hash = Column(Text) 
     phone = Column(String(20))
-    avatar_url = Column(Text) # Required for Kanban avatar requirement [cite: 59]
-    role = Column(String(50), nullable=False) # Admin, Manager, Technician, Employee [cite: 11, 23]
+    avatar_url = Column(Text)
+    role = Column(String(50), nullable=False) 
     department_id = Column(Integer, ForeignKey("departments.department_id"))
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
