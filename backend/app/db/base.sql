@@ -23,7 +23,9 @@ CREATE TABLE users (
         REFERENCES departments(department_id)
         ON DELETE SET NULL
 );
-
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+ALTER TABLE users
+ADD COLUMN password_hash TEXT;
 CREATE TABLE equipment_categories (
     category_id    INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     category_name  VARCHAR(100) NOT NULL UNIQUE,

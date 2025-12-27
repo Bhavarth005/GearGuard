@@ -21,15 +21,15 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(150), nullable=False)
     email = Column(String(150), unique=True)
+    password_hash = Column(Text)  # NEW: Added to match your ALTER TABLE 
     phone = Column(String(20))
-    avatar_url = Column(Text)
-    role = Column(String(50), nullable=False) 
+    avatar_url = Column(Text) # Required for Kanban avatar requirement [cite: 59]
+    role = Column(String(50), nullable=False) # Admin, Manager, Technician, Employee [cite: 11, 23]
     department_id = Column(Integer, ForeignKey("departments.department_id"))
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     department = relationship("Department", back_populates="users")
-    teams = relationship("MaintenanceTeamMember", back_populates="user")
 
 
 class EquipmentCategory(Base):
