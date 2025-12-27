@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
+from app.auth.deps import require_role
 
 router = APIRouter(prefix="/requests", tags=["Requests"])
 
@@ -27,7 +28,7 @@ def create_request(payload: dict, db: Session = Depends(get_db)):
     return {"message": "Request created"}
 
 @router.patch("/{request_id}/status")
-def update_request_status(request_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_request_status(request_id: int, payload: dict, db: Session = Depends(get_db),  user=Depends(require_role("Manager", "Technician"))):
     db.execute(
         """
         SELECT sp_update_request_status(

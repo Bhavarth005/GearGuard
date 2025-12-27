@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
+from app.auth.deps import get_current_user
 
 router = APIRouter(prefix="/equipment", tags=["Equipment"])
 
@@ -12,7 +13,7 @@ def get_db():
         db.close()
 
 @router.post("/")
-def create_equipment(payload: dict, db: Session = Depends(get_db)):
+def create_equipment(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
     db.execute(
         """
         SELECT sp_create_equipment(

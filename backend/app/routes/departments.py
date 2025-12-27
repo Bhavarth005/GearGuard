@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
+from app.auth.deps import require_role
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
@@ -12,7 +13,7 @@ def get_db():
         db.close()
 
 @router.post("/")
-def create_department(payload: dict, db: Session = Depends(get_db)):
+def create_department(payload: dict, db: Session = Depends(get_db), user=Depends(require_role("Admin"))):
     db.execute(
         "SELECT sp_create_department(:name, :desc)",
         {
