@@ -1,39 +1,62 @@
-## GearGuard Stack
+# GearGuard
 
-- **Frontend**: Next.js 16 App Router (TypeScript, Tailwind, Radix UI)
-- **Backend**: FastAPI + PostgreSQL (see `backend/`)
+Submission for the **OdooXAdani University Hackathon – Online Qualifier Round**. GearGuard is a full-stack maintenance intelligence platform that unifies equipment health signals, work orders, and team collaboration into a cohesive dashboard.
 
-Both servers talk over REST. Set the frontend base URL before running the UI:
+## Tech Stack
+- **Frontend**: Next.js 16 App Router, TypeScript, Tailwind CSS, Radix UI, custom component library.
+- **Backend**: FastAPI, Uvicorn, Pydantic.
+- **Database**: PostgreSQL with SQL seed scripts and stored procedures.
+- **Tooling**: pnpm/bun/npm for the web client, Python virtual environments for the API, Postman collection for manual testing.
 
-```bash
-cp .env.example .env.local
-# edit NEXT_PUBLIC_API_URL if your FastAPI server is not on http://127.0.0.1:8000
+## Prerequisites
+- Node.js 18+
+- Python 3.11+
+- PostgreSQL 14+ with a reachable instance (local or remote)
+
+## Environment Variables
+Create an `.env` (backend) with the connection string below, or export it in your shell:
+
+```
+DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase
 ```
 
-## Running Locally
+> Copy `.env.example` if you prefer file-based configuration. Update the credentials/host to match your PostgreSQL instance.
 
-1. **Backend**
-	```bash
-	cd backend
-	uvicorn app.main:app --reload
-	```
-2. **Frontend**
-	```bash
-	pnpm install
-	pnpm dev
-	```
+## Local Setup
 
-Visit [http://localhost:3000](http://localhost:3000) and log in with a user from the database seed (e.g. `admin@gearguard.com` / `Admin@123`).
+### 1. Prepare PostgreSQL
+1. Create a database (e.g., `mydatabase`).
+2. From `backend/app/db`, run the SQL scripts in this order to provision schema, helper procedures, and demo data:
+   - `base.sql`
+   - `procedures.sql`
+   - `seed.sql`
+3. Verify the seed accounts (e.g., `admin@gearguard.com / Admin@123`) exist for testing.
 
-## Features Wired to the API
+### 2. Run the FastAPI backend
+```bash
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate     # On Windows PowerShell use: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+set DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase   # Windows
+export DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase # macOS/Linux
+uvicorn app.main:app --reload
+```
 
-- Authentication (login + signup) stores FastAPI JWT tokens locally and attaches them to protected routes.
-- Equipment dashboard, detail pages, analytics insights, teams view, maintenance kanban, and request form all consume live FastAPI data.
-- Drag-and-drop board updates call `PATCH /requests/{id}/status`, ensuring state stays in sync.
-- Maintenance request form creates records through `POST /requests`.
+### 3. Run the Next.js frontend
+Choose the package manager you prefer:
 
-## Development Notes
+```bash
+pnpm install   # or: npm install | bun install
+pnpm dev       # or: npm run dev | bun dev
+```
 
-- Adjust `NEXT_PUBLIC_API_URL` whenever the backend host/port changes.
-- The UI expects the seed data provided in `backend/app/db/seed.sql` (departments, teams, request statuses, etc.).
-- Any auth-protected endpoints rely on the `authToken` in `localStorage`; clear it to force a logout.
+The web client expects the API at `http://127.0.0.1:8000`. If you change ports, update `NEXT_PUBLIC_API_URL` in `app/.env.local`.
+
+### 4. Use the app
+Keep both servers running and visit [http://localhost:3000](http://localhost:3000). Sign in with any seeded account to explore dashboards, maintenance kanban, analytics, and request workflows.
+
+## Additional Notes
+- Postman collection is available in `postman/GearGuard.postman_collection.json` for manual endpoint verification.
+- Seed data aligns with the UI defaults (departments, priority tags, and request statuses). Re-run `seed.sql` whenever you need a clean demo state.
+- For hackathon submissions, capture screenshots/recordings while both servers run locally to reflect the real experience.
